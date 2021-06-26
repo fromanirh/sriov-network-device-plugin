@@ -86,6 +86,7 @@ var _ = Describe("AcceleratorProvider", func() {
 				Class:   &pcidb.Class{ID: "1024"},
 				Vendor:  &pcidb.Vendor{Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbb"},
 				Product: &pcidb.Product{Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbb"},
+				Driver:  "fake",
 			}
 
 			dev2 := &ghw.PCIDevice{
@@ -93,6 +94,7 @@ var _ = Describe("AcceleratorProvider", func() {
 				Class:   &pcidb.Class{ID: "1024"},
 				Vendor:  &pcidb.Vendor{Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbb"},
 				Product: &pcidb.Product{Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbb"},
+				Driver:  "fake",
 			}
 
 			devInvalid := &ghw.PCIDevice{

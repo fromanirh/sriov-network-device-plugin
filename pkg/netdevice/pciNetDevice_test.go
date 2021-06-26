@@ -15,6 +15,7 @@
 package netdevice_test
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/jaypipes/ghw"
@@ -50,13 +51,21 @@ var _ = Describe("PciNetDevice", func() {
 						"sys/bus/pci/devices/0000:00:00.1/iommu_group": "../../../../kernel/iommu_groups/0",
 						"sys/bus/pci/devices/0000:00:00.1/driver":      "../../../../bus/pci/drivers/vfio-pci",
 					},
-					Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("0")},
+					Files: map[string][]byte{
+						"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("0"),
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
+
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{Address: "0000:00:00.1"}
 				rc := &types.ResourceConfig{}
 
 				dev, err := netdevice.NewPciNetDevice(in, f, rc)
@@ -83,13 +92,21 @@ var _ = Describe("PciNetDevice", func() {
 						"sys/bus/pci/devices/0000:00:00.1/iommu_group": "../../../../kernel/iommu_groups/0",
 						"sys/bus/pci/devices/0000:00:00.1/driver":      "../../../../bus/pci/drivers/vfio-pci",
 					},
-					Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("-1")},
+					Files: map[string][]byte{
+						"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("-1"),
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
+
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{Address: "0000:00:00.1"}
 				rc := &types.ResourceConfig{}
 
 				dev, err := netdevice.NewPciNetDevice(in, f, rc)
@@ -109,12 +126,20 @@ var _ = Describe("PciNetDevice", func() {
 						"sys/bus/pci/devices/0000:00:00.1/iommu_group": "../../../../kernel/iommu_groups/0",
 						"sys/bus/pci/devices/0000:00:00.1/driver":      "../../../../bus/pci/drivers/vfio-pci",
 					},
+					Files: map[string][]byte{
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
+
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{Address: "0000:00:00.1"}
 				rc := &types.ResourceConfig{}
 
 				dev, err := netdevice.NewPciNetDevice(in, f, rc)
@@ -142,9 +167,12 @@ var _ = Describe("PciNetDevice", func() {
 					"sys/bus/pci/devices/0000:00:00.1/driver": "../../../../bus/pci/drivers/mlx5_core",
 					"sys/bus/pci/devices/0000:00:00.2/driver": "../../../../bus/pci/drivers/mlx5_core",
 				},
+				// real modalias data from a intel i350 PF - note trailing '\n'
 				Files: map[string][]byte{
 					"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("0"),
+					"sys/bus/pci/devices/0000:00:00.1/modalias":  []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
 					"sys/bus/pci/devices/0000:00:00.2/numa_node": []byte("0"),
+					"sys/bus/pci/devices/0000:00:00.2/modalias":  []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
 				},
 			}
 			defer fs.Use()()
@@ -177,12 +205,19 @@ var _ = Describe("PciNetDevice", func() {
 				On("GetRdmaSpec", "0000:00:00.1").Return(rdma1).
 				On("GetRdmaSpec", "0000:00:00.2").Return(rdma2)
 
-			in1 := &ghw.PCIDevice{Address: "0000:00:00.1"}
-			in2 := &ghw.PCIDevice{Address: "0000:00:00.2"}
+			pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+			if err != nil {
+				Fail(fmt.Sprintf("cannot load pci device info using ghw from %q: %v", fs.RootDir, err))
+			}
+			in1 := pciDevs.GetDevice("0000:00:00.1")
+			in2 := pciDevs.GetDevice("0000:00:00.2")
 
 			It("should populate Rdma device specs if isRdma", func() {
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
+
+				Expect(in1).ToNot(BeNil())
+
 				dev, err := netdevice.NewPciNetDevice(in1, f, rc)
 
 				Expect(dev.GetDriver()).To(Equal("mlx5_core"))
@@ -199,6 +234,9 @@ var _ = Describe("PciNetDevice", func() {
 			It("but not otherwise", func() {
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
+
+				Expect(in2).ToNot(BeNil())
+
 				dev, err := netdevice.NewPciNetDevice(in2, f, rc)
 
 				Expect(dev.GetDriver()).To(Equal("mlx5_core"))
@@ -233,14 +271,22 @@ var _ = Describe("PciNetDevice", func() {
 					"sys/bus/pci/devices/0000:00:00.1/iommu_group": "../../../../kernel/iommu_groups/0",
 					"sys/bus/pci/devices/0000:00:00.1/driver":      "../../../../bus/pci/drivers/vfio-pci",
 				},
-				Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("0")},
+				Files: map[string][]byte{
+					"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("0"),
+					// real modalias data from a intel i350 PF - note trailing '\n'
+					"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+				},
 			}
 
 			f := factory.NewResourceFactory("fake", "fake", true)
-			in := &ghw.PCIDevice{Address: "0000:00:00.1"}
 			It("should add the vhost-net deviceSpec", func() {
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
+
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
 
 				dev, err := netdevice.NewPciNetDevice(in, f, rc)
 
@@ -259,20 +305,26 @@ var _ = Describe("PciNetDevice", func() {
 		Context("cannot get device's driver", func() {
 			It("should fail", func() {
 				fs := &utils.FakeFilesystem{
-					Dirs:  []string{"sys/bus/pci/devices/0000:00:00.1"},
-					Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/driver": []byte("not a symlink")},
+					Dirs: []string{"sys/bus/pci/devices/0000:00:00.1"},
+					Files: map[string][]byte{
+						"sys/bus/pci/devices/0000:00:00.1/driver": []byte("not a symlink"),
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
+
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{
-					Address: "0000:00:00.1",
-				}
 				rc := &types.ResourceConfig{}
 
 				dev, err := netdevice.NewPciNetDevice(in, f, rc)
-
 				Expect(dev).To(BeNil())
 				Expect(err).To(HaveOccurred())
 			})
@@ -292,6 +344,7 @@ var _ = Describe("PciNetDevice", func() {
 				f := factory.NewResourceFactory("fake", "fake", true)
 				in := &ghw.PCIDevice{
 					Address: "0000:00:00.1",
+					Driver:  "vfio-pci",
 				}
 				rc := &types.ResourceConfig{}
 

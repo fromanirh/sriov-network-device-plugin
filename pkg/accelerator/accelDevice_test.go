@@ -15,6 +15,8 @@
 package accelerator_test
 
 import (
+	"fmt"
+
 	"github.com/jaypipes/ghw"
 
 	"github.com/k8snetworkplumbingwg/sriov-network-device-plugin/pkg/accelerator"
@@ -39,13 +41,21 @@ var _ = Describe("Accelerator", func() {
 						"sys/bus/pci/devices/0000:00:00.1/iommu_group": "../../../../kernel/iommu_groups/0",
 						"sys/bus/pci/devices/0000:00:00.1/driver":      "../../../../bus/pci/drivers/vfio-pci",
 					},
-					Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("0")},
+					Files: map[string][]byte{
+						"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("0"),
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{Address: "0000:00:00.1"}
+
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
 
 				out, err := accelerator.NewAccelDevice(in, f)
 
@@ -68,13 +78,21 @@ var _ = Describe("Accelerator", func() {
 						"sys/bus/pci/devices/0000:00:00.1/iommu_group": "../../../../kernel/iommu_groups/0",
 						"sys/bus/pci/devices/0000:00:00.1/driver":      "../../../../bus/pci/drivers/vfio-pci",
 					},
-					Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("-1")},
+					Files: map[string][]byte{
+						"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("-1"),
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{Address: "0000:00:00.1"}
+
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
 
 				out, err := accelerator.NewAccelDevice(in, f)
 
@@ -93,12 +111,20 @@ var _ = Describe("Accelerator", func() {
 						"sys/bus/pci/devices/0000:00:00.1/iommu_group": "../../../../kernel/iommu_groups/0",
 						"sys/bus/pci/devices/0000:00:00.1/driver":      "../../../../bus/pci/drivers/vfio-pci",
 					},
+					Files: map[string][]byte{
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{Address: "0000:00:00.1"}
+
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
 
 				out, err := accelerator.NewAccelDevice(in, f)
 
@@ -110,16 +136,22 @@ var _ = Describe("Accelerator", func() {
 		Context("cannot get device's driver", func() {
 			It("should fail", func() {
 				fs := &utils.FakeFilesystem{
-					Dirs:  []string{"sys/bus/pci/devices/0000:00:00.1"},
-					Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/driver": []byte("not a symlink")},
+					Dirs: []string{"sys/bus/pci/devices/0000:00:00.1"},
+					Files: map[string][]byte{
+						"sys/bus/pci/devices/0000:00:00.1/driver": []byte("not a symlink"),
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{
-					Address: "0000:00:00.1",
-				}
+
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
 
 				dev, err := accelerator.NewAccelDevice(in, f)
 
@@ -130,19 +162,30 @@ var _ = Describe("Accelerator", func() {
 		Context("device's PF name is not available", func() {
 			It("device should be added", func() {
 				fs := &utils.FakeFilesystem{
-					Dirs: []string{"sys/bus/pci/devices/0000:00:00.1"},
+					Dirs: []string{
+						"sys/bus/pci/devices/0000:00:00.1",
+						"sys/bus/pci/drivers/vfio-pci",
+					},
 					Symlinks: map[string]string{
 						"sys/bus/pci/devices/0000:00:00.1/iommu_group": "../../../../kernel/iommu_groups/0",
 						"sys/bus/pci/devices/0000:00:00.1/driver":      "../../../../bus/pci/drivers/vfio-pci",
+					},
+					Files: map[string][]byte{
+						// real modalias data from a intel i350 PF - note trailing '\n'
+						"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
 					},
 				}
 				defer fs.Use()()
 				defer utils.UseFakeLinks()()
 
 				f := factory.NewResourceFactory("fake", "fake", true)
-				in := &ghw.PCIDevice{
-					Address: "0000:00:00.1",
-				}
+
+				pciDevs, err := ghw.PCI(ghw.WithChroot(fs.RootDir))
+				Expect(err).ToNot(HaveOccurred())
+				in := pciDevs.GetDevice("0000:00:00.1")
+				Expect(in).ToNot(BeNil())
+
+				fmt.Fprintf(GinkgoWriter, "in=%s\n", in)
 
 				dev, err := accelerator.NewAccelDevice(in, f)
 				Expect(err).NotTo(HaveOccurred())

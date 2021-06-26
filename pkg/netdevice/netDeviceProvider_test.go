@@ -15,6 +15,8 @@
 package netdevice_test
 
 import (
+	"strconv"
+
 	"github.com/k8snetworkplumbingwg/sriov-network-device-plugin/pkg/factory"
 	"github.com/k8snetworkplumbingwg/sriov-network-device-plugin/pkg/netdevice"
 	"github.com/k8snetworkplumbingwg/sriov-network-device-plugin/pkg/types"
@@ -67,6 +69,9 @@ var _ = Describe("NetDeviceProvider", func() {
 					"sys/bus/pci/devices/0000:00:00.1/sriov_numvfs":   []byte("32"),
 					"sys/bus/pci/devices/0000:00:00.1/sriov_totalvfs": []byte("64"),
 					"sys/bus/pci/devices/0000:00:00.2/sriov_numvfs":   []byte("0"),
+					// real modalias data from a intel i350 PF - note trailing '\n'
+					"sys/bus/pci/devices/0000:00:00.1/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
+					"sys/bus/pci/devices/0000:00:00.2/modalias": []byte("pci:v00008086d00001521sv0000FFFFsd00000000bc02sc00i00\n"),
 				},
 			}
 
@@ -80,27 +85,19 @@ var _ = Describe("NetDeviceProvider", func() {
 					DeviceSelectors: types.DeviceSelectors{},
 				},
 			}
-			dev1 := &ghw.PCIDevice{
-				Address: "0000:00:00.1",
-				Class:   &pcidb.Class{ID: "1024"},
-				Vendor:  &pcidb.Vendor{Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbb"},
-				Product: &pcidb.Product{Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbb"},
-			}
 
-			dev2 := &ghw.PCIDevice{
-				Address: "0000:00:00.2",
-				Class:   &pcidb.Class{ID: "1024"},
-				Vendor:  &pcidb.Vendor{Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbb"},
-				Product: &pcidb.Product{Name: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaabbbbbbbbbbbbbbbbbbbbbbbbb"},
-			}
-
+			pciDevs, _ := ghw.PCI(ghw.WithChroot(fs.RootDir))
+			dev1 := pciDevs.GetDevice("0000:00:00.1")
+			dev2 := pciDevs.GetDevice("0000:00:00.2")
+			// both devices have the same class because we use the same modalias for both
+			devClassID, _ := strconv.Atoi(dev1.Class.ID)
 			devInvalid := &ghw.PCIDevice{
 				Class: &pcidb.Class{ID: "completely unparsable"},
 			}
 
 			devsToAdd := []*ghw.PCIDevice{dev1, dev2, devInvalid}
 
-			err := p.AddTargetDevices(devsToAdd, 0x1024)
+			err := p.AddTargetDevices(devsToAdd, devClassID)
 			dDevs := p.GetDiscoveredDevices()
 			devs := p.GetDevices(config)
 			It("shouldn't return an error", func() {

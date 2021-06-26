@@ -172,42 +172,6 @@ var _ = Describe("In the utils package", func() {
 		),
 	)
 
-	DescribeTable("getting NUMA node of device",
-		func(fs *FakeFilesystem, pciAddr string, expected int) {
-			defer fs.Use()()
-			Expect(GetDevNode(pciAddr)).To(Equal(expected))
-		},
-		Entry("reading the device path fails", &FakeFilesystem{}, "0000:00:00.0", -1),
-		Entry("converting the NUMA node to integer fails",
-			&FakeFilesystem{
-				Dirs:  []string{"sys/bus/pci/devices/0000:00:00.1"},
-				Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("invalid content")},
-			},
-			"0000:00:00.1", -1,
-		),
-		Entry("finding positive NUMA node",
-			&FakeFilesystem{
-				Dirs:  []string{"sys/bus/pci/devices/0000:00:00.1"},
-				Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("1")},
-			},
-			"0000:00:00.1", 1,
-		),
-		Entry("finding zero NUMA node",
-			&FakeFilesystem{
-				Dirs:  []string{"sys/bus/pci/devices/0000:00:00.1"},
-				Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("0")},
-			},
-			"0000:00:00.1", 0,
-		),
-		Entry("finding negative NUMA node",
-			&FakeFilesystem{
-				Dirs:  []string{"sys/bus/pci/devices/0000:00:00.1"},
-				Files: map[string][]byte{"sys/bus/pci/devices/0000:00:00.1/numa_node": []byte("-1")},
-			},
-			"0000:00:00.1", -1,
-		),
-	)
-
 	DescribeTable("checking that device status is up",
 		func(fs *FakeFilesystem, dev string, expected bool) {
 			defer fs.Use()()
@@ -345,26 +309,6 @@ var _ = Describe("In the utils package", func() {
 				Dirs: []string{"sys/bus/pci/devices/0000:01:10.0/uio/uio1"},
 			},
 			"0000:01:10.0", "/dev/uio1", false,
-		),
-	)
-
-	DescribeTable("getting driver name",
-		func(fs *FakeFilesystem, device, expected string, shouldFail bool) {
-			defer fs.Use()()
-			actual, err := GetDriverName(device)
-			Expect(actual).To(Equal(expected))
-			assertShouldFail(err, shouldFail)
-		},
-		Entry("driver link doesn't exist",
-			&FakeFilesystem{},
-			"0000:01:10.0", "", true,
-		),
-		Entry("correct driver name is returned",
-			&FakeFilesystem{
-				Dirs:     []string{"sys/bus/pci/devices/0000:01:10.0/", "sys/bus/pci/drivers/fake"},
-				Symlinks: map[string]string{"sys/bus/pci/devices/0000:01:10.0/driver": "../../../../bus/pci/drivers/fake"},
-			},
-			"0000:01:10.0", "fake", false,
 		),
 	)
 

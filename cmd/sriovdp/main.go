@@ -33,6 +33,10 @@ func flagInit(cp *cliParams) {
 		"JSON device pool config file location")
 	flag.StringVar(&cp.resourcePrefix, "resource-prefix", "intel.com",
 		"resource name prefix used for K8s extended resource")
+	flag.StringVar(&cp.procfsRoot, "procfs", "/proc",
+		"root directory of procfs")
+	flag.StringVar(&cp.sysfsRoot, "sysfs", "/sys",
+		"root directory of sysfs")
 }
 
 func main() {

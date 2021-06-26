@@ -34,6 +34,8 @@ const (
 type cliParams struct {
 	configFile     string
 	resourcePrefix string
+	procfsRoot     string
+	sysfsRoot      string
 }
 
 type resourceManager struct {
@@ -212,8 +214,10 @@ func (rm *resourceManager) validConfigs() bool {
 }
 
 func (rm *resourceManager) discoverHostDevices() error {
-
-	pci, err := ghw.PCI()
+	pci, err := ghw.PCI(ghw.WithPathOverrides(ghw.PathOverrides{
+		"/proc": rm.procfsRoot,
+		"/sys":  rm.sysfsRoot,
+	}))
 	if err != nil {
 		return fmt.Errorf("discoverDevices(): error getting PCI info: %v", err)
 	}

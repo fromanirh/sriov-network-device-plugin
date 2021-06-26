@@ -15,6 +15,8 @@
 package netdevice
 
 import (
+	"fmt"
+
 	"github.com/golang/glog"
 	"github.com/jaypipes/ghw"
 
@@ -38,12 +40,11 @@ func NewPciNetDevice(dev *ghw.PCIDevice, rFactory types.ResourceFactory, rc *typ
 	var ifName string
 	infoProviders := make([]types.DeviceInfoProvider, 0)
 
-	driverName, err := utils.GetDriverName(dev.Address)
-	if err != nil {
-		return nil, err
+	if dev.Driver == "" {
+		return nil, fmt.Errorf("error getting driver info for device %s", dev.Address)
 	}
 
-	infoProviders = append(infoProviders, rFactory.GetDefaultInfoProvider(dev.Address, driverName))
+	infoProviders = append(infoProviders, rFactory.GetDefaultInfoProvider(dev.Address, dev.Driver))
 	rdmaSpec := rFactory.GetRdmaSpec(dev.Address)
 	nf, ok := rc.SelectorObj.(*types.NetDeviceSelectors)
 	if ok {

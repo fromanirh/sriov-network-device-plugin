@@ -15,6 +15,7 @@
 package resources
 
 import (
+	"fmt"
 	"strconv"
 
 	"github.com/jaypipes/ghw"
@@ -26,22 +27,9 @@ import (
 type pciDevice struct {
 	basePciDevice *ghw.PCIDevice
 	pfAddr        string
-	driver        string
-	vendor        string
-	product       string
 	vfID          int
-	numa          string
 	apiDevice     *pluginapi.Device
 	infoProviders []types.DeviceInfoProvider
-}
-
-// Convert NUMA node number to string.
-// A node of -1 represents "unknown" and is converted to the empty string.
-func nodeToStr(nodeNum int) string {
-	if nodeNum >= 0 {
-		return strconv.Itoa(nodeNum)
-	}
-	return ""
 }
 
 // NewPciDevice returns an instance of PciDevice interface
@@ -57,10 +45,8 @@ func NewPciDevice(dev *ghw.PCIDevice, rFactory types.ResourceFactory, infoProvid
 		return nil, err
 	}
 
-	// Get driver info
-	driverName, err := utils.GetDriverName(pciAddr)
-	if err != nil {
-		return nil, err
+	if dev.Driver == "" {
+		return nil, fmt.Errorf("error getting driver info for device %s: none found", dev.Address)
 	}
 
 	vfID, err := utils.GetVFID(pciAddr)
@@ -70,20 +56,20 @@ func NewPciDevice(dev *ghw.PCIDevice, rFactory types.ResourceFactory, infoProvid
 
 	// Use the default Information Provided if not
 	if len(infoProviders) == 0 {
-		infoProviders = append(infoProviders, rFactory.GetDefaultInfoProvider(pciAddr, driverName))
+		infoProviders = append(infoProviders, rFactory.GetDefaultInfoProvider(pciAddr, dev.Driver))
 	}
 
-	nodeNum := utils.GetDevNode(pciAddr)
 	apiDevice := &pluginapi.Device{
 		ID:     pciAddr,
 		Health: pluginapi.Healthy,
 	}
-	if nodeNum >= 0 {
-		numaInfo := &pluginapi.NUMANode{
-			ID: int64(nodeNum),
-		}
+	if dev.Node != nil {
 		apiDevice.Topology = &pluginapi.TopologyInfo{
-			Nodes: []*pluginapi.NUMANode{numaInfo},
+			Nodes: []*pluginapi.NUMANode{
+				&pluginapi.NUMANode{
+					ID: int64(dev.Node.ID),
+				},
+			},
 		}
 	}
 
@@ -91,11 +77,9 @@ func NewPciDevice(dev *ghw.PCIDevice, rFactory types.ResourceFactory, infoProvid
 	return &pciDevice{
 		basePciDevice: dev,
 		pfAddr:        pfAddr,
-		driver:        driverName,
 		vfID:          vfID,
 		apiDevice:     apiDevice,
 		infoProviders: infoProviders,
-		numa:          nodeToStr(nodeNum),
 	}, nil
 }
 
@@ -116,7 +100,7 @@ func (pd *pciDevice) GetPciAddr() string {
 }
 
 func (pd *pciDevice) GetDriver() string {
-	return pd.driver
+	return pd.basePciDevice.Driver
 }
 
 func (pd *pciDevice) IsSriovPF() bool {
@@ -160,5 +144,8 @@ func (pd *pciDevice) GetVFID() int {
 }
 
 func (pd *pciDevice) GetNumaInfo() string {
-	return pd.numa
+	if pd.basePciDevice.Node == nil {
+		return ""
+	}
+	return strconv.Itoa(pd.basePciDevice.Node.ID)
 }
